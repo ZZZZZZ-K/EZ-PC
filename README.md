@@ -12,17 +12,17 @@ This project is an automated Perfect Clear (PC) solver for Tetris, designed to r
 ```
 Tetris-Bot/
 │
-├── main.py                     # Main entry to start the GUI and PC solver
-├── requirements.txt            # List of dependencies (to be created)
-├── gui.py                      # GUI interface for visualization
+├── main.py                    
+├── requirements.txt           
+├── gui.py                     
 ├── model/
-│   └── tetris_piece_model.pth  # Pre-trained model for Tetris piece recognition
+│   └── tetris_piece_model.pth 
 ├── tetris/
-│   ├── __init__.py             # Package initialization
-│   ├── tetris_pc.py            # PC solver logic
-│   ├── screen_capture.py       # Screen capturing and board detection
-│   └── piece_classifier.py     # CNN model for piece classification and training
-└── data/                       # Dataset for training and testing (optional)
+│   ├── __init__.py             
+│   ├── tetris_pc.py            
+│   ├── screen_capture.py      
+│   └── piece_classifier.py     
+└── data/                      
 ```
 
 ## Prerequisites
@@ -35,7 +35,7 @@ Tetris-Bot/
 
 2. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/Tetris-Bot.git
+   git clone https://github.com/ZZZZZZ-K/EZ-PC.git
    cd Tetris-Bot
    ```
 
