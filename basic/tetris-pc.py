@@ -13,6 +13,7 @@ class TetrisPC:
             'I': [(0, 0), (-2, 0), (1, 0), (-2, -1), (1, 2)],
             'default': [(0, 0), (-1, 0), (1, 0), (-1, 1), (1, -1)]
         }
+        self.spawn_x = 4  # 通常的方块生成位置
 
     def can_pc(self, board, bag, hold, depth=0):
         state = (tuple(map(tuple, board)), tuple(bag), hold, depth)
@@ -30,7 +31,7 @@ class TetrisPC:
             new_bag = bag[:i] + bag[i+1:]
             for rotation in self.get_rotations(piece):
                 for x in range(len(board[0])):
-                    new_board = self.place_piece(board, rotation, x, piece)
+                    new_board = self.hard_drop(board, rotation, x, piece)
                     if new_board is not None:
                         if self.can_pc(new_board, new_bag, hold, depth+1):
                             self.memo[state] = True
@@ -42,7 +43,7 @@ class TetrisPC:
                     new_bag = bag[:i] + [hold] + bag[i+1:]
                     for rotation in self.get_rotations(piece):
                         for x in range(len(board[0])):
-                            new_board = self.place_piece(board, rotation, x, piece)
+                            new_board = self.hard_drop(board, rotation, x, piece)
                             if new_board is not None:
                                 if self.can_pc(new_board, new_bag, piece, depth+1):
                                     self.memo[state] = True
@@ -75,7 +76,7 @@ class TetrisPC:
                          np.array([[1, 1], [1, 0], [1, 0]]), np.array([[1, 1, 1], [0, 0, 1]])]
         return rotations
 
-    def place_piece(self, board, piece, x, piece_type):
+    def hard_drop(self, board, piece, x, piece_type):
         new_board = board.copy()
         y = 0
         while y + piece.shape[0] <= new_board.shape[0]:
@@ -85,20 +86,19 @@ class TetrisPC:
         y -= 1
 
         if y >= 0:
-            for dx, dy in self.kick_table.get(piece_type, self.kick_table['default']):
-                if self.check_kick_valid(new_board, piece, x + dx, y + dy):
-                    new_board[y+dy:y+dy+piece.shape[0], x+dx:x+dx+piece.shape[1]] += piece
-                    self.display_move_instructions(piece, x + dx)
-                    return new_board
+            new_board[y:y+piece.shape[0], x:x+piece.shape[1]] += piece
+            self.display_move_instructions(piece, x)
+            return new_board
         return None
 
-    def check_kick_valid(self, board, piece, x, y):
-        if x < 0 or x + piece.shape[1] > board.shape[1] or y + piece.shape[0] > board.shape[0]:
-            return False
-        return not np.any(board[y:y+piece.shape[0], x:x+piece.shape[1]] + piece > 1)
-
     def display_move_instructions(self, piece, target_column):
-        print(f"Move {piece} to column {target_column}. If needed, hold or rotate for better fit.")
+        moves = target_column - self.spawn_x
+        if moves > 0:
+            print(f"Move {piece} right {moves} times, then HD (Hard Drop).")
+        elif moves < 0:
+            print(f"Move {piece} left {abs(moves)} times, then HD (Hard Drop).")
+        else:
+            print(f"HD (Hard Drop) {piece} from spawn point.")
 
     def suggest_moves(self, board, bag, hold):
         suggestions = []
@@ -106,7 +106,7 @@ class TetrisPC:
             new_bag = bag[:i] + bag[i+1:]
             for rotation in self.get_rotations(piece):
                 for x in range(len(board[0])):
-                    new_board = self.place_piece(board, rotation, x, piece)
+                    new_board = self.hard_drop(board, rotation, x, piece)
                     if new_board is not None and self.can_pc(new_board, new_bag, hold):
                         suggestions.append((piece, rotation, x, new_board))
         return suggestions
