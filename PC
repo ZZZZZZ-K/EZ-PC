@@ -1,0 +1,7 @@
+cd tetris_dataset
+git init
+git add .
+git commit -m "Add Tetris dataset"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/tetris-dataset.git
+git push -u origin main
