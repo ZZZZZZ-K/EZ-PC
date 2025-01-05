@@ -1,108 +1,43 @@
-import numpy as np
 import torch
 import pyautogui
+from tetris.tetris_pc import TetrisPC
+from tetris.screen_capture import capture_screen, find_tetris_board, extract_board_state
+from tetris.piece_classifier import identify_next_piece
+import time
 
+def main():
+    # 初始化俄罗斯方块PC解决方案类
+    tetris_bot = TetrisPC()
 
-class TetrisPC:
-    def __init__(self):
-        self.memo = {}
-        self.kick_table = {
-            'I': [(0, 0), (-2, 0), (1, 0), (-2, -1), (1, 2)],
-            'default': [(0, 0), (-1, 0), (1, 0), (-1, 1), (1, -1)]
-        }
-        self.spawn_x = 4
-        self.model = self.load_piece_recognition_model()
+    # 配置区域捕捉的初始参数
+    queue_offset_x = 250
+    queue_offset_y = -100
 
-    def load_piece_recognition_model(self):
-        model = SimpleCNN()
-        model.load_state_dict(torch.load('model/tetris_piece_model.pth', map_location=torch.device('cpu')))
-        model.eval()
-        return model
+    print("Tetris bot is running... Press Ctrl+C to stop.")
+    try:
+        while True:
+            screen = capture_screen()
+            board_region = find_tetris_board(screen)
 
-    def real_time_suggest(self, board, bag, hold):
-        # 动态规划PC路径，考虑未来2-3个Piece
-        best_moves = []
-        max_depth = 3  # 规划深度，考虑未来3个方块
+            if board_region:
+                # 提取当前版面状态
+                board_state = extract_board_state(screen, board_region)
+                # 动态计算下一个Piece的区域
+                queue_region = (board_region[0] + queue_offset_x, board_region[1] + queue_offset_y)
+                # 识别下一个Piece
+                next_piece = identify_next_piece(screen, queue_region, tetris_bot.model)
+                
+                # 计算推荐移动路径
+                moves = tetris_bot.real_time_suggest(board_state, [next_piece], None)
+                # 执行推荐操作
+                tetris_bot.perform_moves(moves)
+            else:
+                print("Tetris board not found. Ensure the game is running and visible.")
 
-        def dfs(current_board, bag, hold, depth):
-            if depth == max_depth or len(bag) == 0:
-                return 0
+            time.sleep(0.1)  # 休眠0.1秒，减少CPU占用
+    
+    except KeyboardInterrupt:
+        print("Tetris bot stopped.")
 
-            best_score = -1
-            best_sequence = []
-
-            # 遍历所有方块以及Hold情况
-            for i, piece in enumerate(bag):
-                next_bag = bag[:i] + bag[i+1:]
-                for rotation in self.get_rotations(piece):
-                    for x in range(len(board[0])):
-                        new_board, valid = self.place_piece(current_board, rotation, x, piece)
-                        if valid:
-                            score = self.evaluate_board(new_board)
-                            future_score = dfs(new_board, next_bag, hold, depth + 1)
-                            total_score = score + future_score
-
-                            if total_score > best_score:
-                                best_score = total_score
-                                best_sequence = [f"Move {piece} to {x}, then HD"]
-
-            # 尝试Hold
-            if hold and hold != bag[0]:
-                hold_bag = [hold] + bag[1:]
-                hold_sequence = dfs(board, hold_bag, bag[0], depth)
-                if hold_sequence > best_score:
-                    best_sequence = [f"Hold {bag[0]}"] + hold_sequence
-
-            if depth == 0:
-                return best_sequence
-            return best_score
-
-        # 调用深度搜索，获得最优路径
-        best_moves = dfs(board, bag, hold, 0)
-        return best_moves
-
-    def place_piece(self, board, piece, x, piece_type):
-        # 硬掉逻辑和踢墙优化
-        y = 0
-        while y + piece.shape[0] <= board.shape[0]:
-            if np.any(board[y:y + piece.shape[0], x:x + piece.shape[1]] + piece > 1):
-                break
-            y += 1
-        y -= 1
-
-        if y >= 0:
-            board[y:y + piece.shape[0], x:x + piece.shape[1]] += piece
-            return board, True
-        return board, False
-
-    def evaluate_board(self, board):
-        # 简单评估函数：计算空洞数量和版面高度
-        holes = np.sum((board == 0) & (np.cumsum(board, axis=0) > 0))
-        height = np.max(np.sum(board > 0, axis=0))
-        return -holes - height * 5  # 负号代表希望最小化空洞和高度
-
-    def get_rotations(self, piece):
-        rotations = []
-        if piece == 'I':
-            rotations = [np.array([[1, 1, 1, 1]]), np.array([[1], [1], [1], [1]])]
-        elif piece == 'O':
-            rotations = [np.array([[1, 1], [1, 1]])]
-        elif piece == 'T':
-            rotations = [
-                np.array([[1, 1, 1], [0, 1, 0]]),
-                np.array([[1, 0], [1, 1], [1, 0]]),
-                np.array([[0, 1, 0], [1, 1, 1]]),
-                np.array([[0, 1], [1, 1], [0, 1]])
-            ]
-        return rotations
-
-    def perform_moves(self, moves):
-        for move in moves:
-            if 'left' in move:
-                pyautogui.press('left', presses=int(move.split()[2]))
-            elif 'right' in move:
-                pyautogui.press('right', presses=int(move.split()[2]))
-            if 'HD' in move:
-                pyautogui.press('space')
-            if 'Hold' in move:
-                pyautogui.press('shift')  # Hold键通常绑定到C
+if __name__ == '__main__':
+    main()
