@@ -1,0 +1,100 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+class TetrisPC:
+    def __init__(self):
+        self.memo = {}
+
+    def can_pc(self, board, bag, hold, depth=0):
+        state = (tuple(map(tuple, board)), tuple(bag), hold, depth)
+        
+        if state in self.memo:
+            return self.memo[state]
+        
+        if self.is_perfect_clear(board):
+            return True
+        
+        if depth == len(bag):
+            return False
+
+        for i, piece in enumerate(bag):
+            new_bag = bag[:i] + bag[i+1:]
+            for rotation in self.get_rotations(piece):
+                for x in range(len(board[0])):
+                    new_board = self.place_piece(board, rotation, x)
+                    if new_board is not None:
+                        if self.can_pc(new_board, new_bag, hold, depth+1):
+                            self.memo[state] = True
+                            return True
+
+        if hold:
+            for rotation in self.get_rotations(hold):
+                for x in range(len(board[0])):
+                    new_board = self.place_piece(board, rotation, x)
+                    if new_board is not None:
+                        if self.can_pc(new_board, bag, hold, depth+1):
+                            self.memo[state] = True
+                            return True
+
+        self.memo[state] = False
+        return False
+
+    def is_perfect_clear(self, board):
+        return np.all(board == 0)
+
+    def get_rotations(self, piece):
+        rotations = []
+        if piece == 'I':
+            rotations = [np.array([[1, 1, 1, 1]]), np.array([[1], [1], [1], [1]])]
+        elif piece == 'O':
+            rotations = [np.array([[1, 1], [1, 1]])]
+        elif piece == 'T':
+            rotations = [np.array([[1, 1, 1], [0, 1, 0]]), np.array([[1, 0], [1, 1], [1, 0]]),
+                         np.array([[0, 1, 0], [1, 1, 1]]), np.array([[0, 1], [1, 1], [0, 1]])]
+        # Add other pieces and their rotations
+        return rotations
+
+    def place_piece(self, board, piece, x):
+        new_board = board.copy()
+        y = 0
+        while y + piece.shape[0] <= new_board.shape[0]:
+            if np.any(new_board[y:y+piece.shape[0], x:x+piece.shape[1]] + piece > 1):
+                break
+            y += 1
+        y -= 1
+
+        if y >= 0:
+            new_board[y:y+piece.shape[0], x:x+piece.shape[1]] += piece
+            return new_board
+        return None
+
+    def suggest_moves(self, board, bag, hold):
+        suggestions = []
+        for i, piece in enumerate(bag):
+            new_bag = bag[:i] + bag[i+1:]
+            for rotation in self.get_rotations(piece):
+                for x in range(len(board[0])):
+                    new_board = self.place_piece(board, rotation, x)
+                    if new_board is not None and self.can_pc(new_board, new_bag, hold):
+                        suggestions.append((piece, rotation, x, new_board))
+        return suggestions
+
+    def plot_board(self, board):
+        plt.imshow(board, cmap='gray_r')
+        plt.xticks(np.arange(-.5, 10, 1), [])
+        plt.yticks(np.arange(-.5, 20, 1), [])
+        plt.grid(True, which='both', color='black', linewidth=0.5)
+        plt.title('Tetris Board')
+        plt.show()
+
+# Example usage
+board = np.zeros((20, 10), dtype=int)
+bag = ['T', 'O', 'I', 'S', 'Z', 'L', 'J']  # 7-bag system
+hold = None
+
+solver = TetrisPC()
+suggestions = solver.suggest_moves(board, bag, hold)
+
+if suggestions:
+    for _, _, _, new_board in suggestions:
+        solver.plot_board(new_board)
