@@ -8,6 +8,8 @@ import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 import threading
 import time
+import tkinter as tk
+from tkinter import ttk
 
 class TetrisPC:
     def __init__(self):
@@ -18,6 +20,7 @@ class TetrisPC:
         }
         self.spawn_x = 4
         self.model = self.load_piece_recognition_model()
+        self.auto_mode = False  # 自动模式开关
 
     def load_piece_recognition_model(self):
         model = SimpleCNN()
@@ -86,49 +89,53 @@ class TetrisPC:
                          np.array([[1, 1], [1, 0], [1, 0]]), np.array([[1, 1, 1], [0, 0, 1]])]
         return rotations
 
-    def hard_drop_with_kick(self, board, piece, x, piece_type):
-        new_board = board.copy()
-        y = 0
-        final_x = x
-        for dx, dy in self.kick_table.get(piece_type, self.kick_table['default']):
-            temp_x = x + dx
-            temp_y = y + dy
-            if temp_x >= 0 and temp_x + piece.shape[1] <= board.shape[1]:
-                while temp_y + piece.shape[0] <= new_board.shape[0]:
-                    if np.any(new_board[temp_y:temp_y + piece.shape[0], temp_x:temp_x + piece.shape[1]] + piece > 1):
-                        break
-                    temp_y += 1
-                temp_y -= 1
-                if temp_y >= 0:
-                    new_board[temp_y:temp_y + piece.shape[0], temp_x:temp_x + piece.shape[1]] += piece
-                    final_x = temp_x
-                    self.display_move_instructions(piece, final_x)
-                    return new_board, final_x
-        return None, x
+    def perform_moves(self, moves):
+        if self.auto_mode:
+            for move in moves:
+                if 'left' in move:
+                    pyautogui.press('left', presses=abs(int(move.split()[2])))
+                elif 'right' in move:
+                    pyautogui.press('right', presses=int(move.split()[2]))
+                if 'HD' in move:
+                    pyautogui.press('space')
+        else:
+            for move in moves:
+                print(move)
 
     def display_move_instructions(self, piece, target_column):
         moves = target_column - self.spawn_x
+        instruction = ""
         if moves > 0:
-            print(f"Move {piece} right {moves} times, then HD (Hard Drop).")
+            instruction = f"Move {piece} right {moves} times, then HD (Hard Drop)."
         elif moves < 0:
-            print(f"Move {piece} left {abs(moves)} times, then HD (Hard Drop).")
+            instruction = f"Move {piece} left {abs(moves)} times, then HD (Hard Drop)."
         else:
-            print(f"HD (Hard Drop) {piece} from spawn point.")
+            instruction = f"HD (Hard Drop) {piece} from spawn point."
+        self.perform_moves([instruction])
 
-    def real_time_suggest(self, board, bag, hold):
-        while True:
-            suggestions = self.suggest_moves(board, bag, hold)
-            print("Real-time suggestions:")
-            for suggestion in suggestions:
-                print(suggestion)
+    def gui(self):
+        root = tk.Tk()
+        root.title("Tetris PC Assistant")
+        
+        mode_label = ttk.Label(root, text="Select Mode:")
+        mode_label.pack(pady=10)
 
-    def suggest_moves(self, board, bag, hold):
-        suggestions = []
-        for i, piece in enumerate(bag):
-            new_bag = bag[:i] + bag[i+1:]
-            for rotation in self.get_rotations(piece):
-                for x in range(len(board[0])):
-                    new_board, _ = self.hard_drop_with_kick(board, rotation, x, piece)
-                    if new_board is not None and self.can_pc(new_board, new_bag, hold):
-                        suggestions.append((piece, rotation, x, new_board))
-        return suggestions
+        auto_button = ttk.Button(root, text="Auto Mode", command=self.enable_auto)
+        auto_button.pack(pady=5)
+
+        suggest_button = ttk.Button(root, text="Suggest Only", command=self.disable_auto)
+        suggest_button.pack(pady=5)
+
+        root.mainloop()
+
+    def enable_auto(self):
+        self.auto_mode = True
+        print("Auto mode enabled. The system will perform moves automatically.")
+
+    def disable_auto(self):
+        self.auto_mode = False
+        print("Suggest mode enabled. The system will only display move instructions.")
+
+if __name__ == '__main__':
+    tetris_bot = TetrisPC()
+    tetris_bot.gui()
